@@ -1,0 +1,205 @@
+import React, { useEffect, useRef } from 'react';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
+type Props = {
+  mode?: 'cube' | 'webcam'; // 'cube' por defecto, 'webcam' usa getUserMedia como textura
+  width?: number;
+  height?: number;
+};
+
+export const ThreeView: React.FC<Props> = ({ mode = 'cube', width = 600, height = 400 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1220);
+
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    camera400scene.backgroundimport React, { useEffect, useRef } from 'react';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
+type Props = {
+  mode?: 'cube' | 'webcam';
+  width?: number;
+  height?: number;
+};
+
+export const ThreeView: React.FC<Props> = ({ mode = 'cube', width = 640, height = 480 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const reqRef = useRef<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1220);
+
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    camera.position.set(0, 1.5, 3);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+    dir.position.set(5, 10, 7.5);
+    scene.add(dir);
+
+    let mesh: THREE.Mesh;
+    if (mode === 'cube') {
+      const geom = new THREE.BoxGeometry(1, 1, 1);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x4ade80 });
+      mesh = new THREE.Mesh(geom, mat);
+      scene.add(mesh);
+    } else {
+      // webcam mode: draw webcam on a plane
+      const planeGeom = new THREE.PlaneGeometry(4, 3);
+      const planeMat = new THREE.MeshBasicMaterial({ color: 0x222222 });
+      mesh = new THREE.Mesh(planeGeom, planeMat);
+      mesh.rotation.x = 0;
+      scene.add(mesh);
+
+      // create hidden video element
+      const video = document.createElement('video');
+      video.autoplay = true;
+      video.muted = true;
+      video.playsInline = true;
+      videoRef.current = video;
+
+      navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        .then((stream) => {
+          video.srcObject = stream;
+          video.play().catch(() => {});
+          const texture = new THREE.VideoTexture(video);
+          texture.minFilter = THREE.LinearFilter;
+          texture.magFilter = THREE.LinearFilter;
+          texture.format = THREE.RGBAFormat;
+          (mesh.material as THREE.MeshBasicMaterial).map = texture;
+          (mesh.material as THREE.MeshBasicMaterial).needsUpdate = true;
+        })
+        .catch((err) => {
+          console.error('getUserMedia error:', err);
+        });
+    }
+
+    // responsive: adjust on window resize
+    const onResize = () => {
+      const w = container.clientWidth || width;
+      const h = container.clientHeight || height;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    };
+    window.addEventListener('resize', onResize);
+
+    // animation
+    const animate = () => {
+      controls.update();
+      if (mode === 'cube' && mesh) {
+        mesh.rotation.x += 0.01;
+        mesh.rotation.y += 0.01;
+      }
+      renderer.render(scene, camera);
+      reqRef.current = requestAnimationFrame(animate);
+    };
+    animate();
+
+    // cleanup
+    return () => {
+      if (reqRef.current) cancelAnimationFrame(reqRef.current);
+      window.removeEventListener('resize', onResize);
+      controls.dispose();
+      renderer.dispose();
+      if (videoRef.current && videoRef.current.srcObject) {
+        const tracks = (videoRef.current.srcObject as MediaStream).getTracks();
+        tracks.forEach((t) => t.stop());
+      }
+      // remove renderer DOM
+      if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+    };
+  }, [mode, width, height]);
+
+  // container styles: keep a ratio
+  return (
+    <div
+      ref={containerRef}
+      style={{
+        width: width,
+        height: height,
+        maxWidth: '100%',
+        background: '#081028',
+        borderRadius: 8,
+        overflow: 'hidden',
+      }}
+    />
+  );
+};video.autoplaycontrols.enableDampingvideo.playsInlinevideo.mutedvideoRef.currentvideo.srcObjecttexture.minFiltertexture.magFiltertexture.formatreqRef.current081028reqRef.currentimport React from 'react';
+import { VideoRecorder } from './components/VideoRecorder';
+import { ThreeView } from './components/ThreeView';
+
+const App: React.FC = () => {
+  return (
+    <div className="min-h-screen bg-slate-900 text-gray-200 flex flex-col items-center p-4">
+      <header className="w-full max-w-4xl text-center mb-8">
+        <h1>Real-time Video Recorder</h1>
+      </header>
+      <main className="w-full flex flex-col md:flex-row gap-4 justify-center items-start">
+        <VideoRecorder />
+        {/* Modo 'cube' o 'webcam' */}
+        <ThreeView mode="cube" width={640} height={480} />
+      </main>
+    </div>
+  );
+};
+
+export default App;Archivos relevantes donde integrar la vista 3D
+- Encontré estos archivos/entradas en la raíz del repo: App.tsx, index.tsx, index.html y la carpeta components.  
+- Punto de integración recomendado: App.tsx (envolvente global) o dentro de components/VideoRecorder (para mostrar 3D junto al video). App.tsx ya renderiza <VideoRecorder /> — propongo añadir un nuevo componente 3D en components/ThreeView.tsx y mostrarlo junto al VideoRecorder en App.tsx.
+
+Instrucciones rápidas de instalación
+1. Instala three (y controles si los quieres):
+   - npm install three
+   - (opcional) npm install three @types/three  — three ya incluye tipos pero puedes añadir @types si lo prefieres.
+2. Levanta la app:
+   - npm install
+   - npm run dev
+
+Nuevo archivo: components/ThreeView.tsx
+- Componente React + TypeScript que monta una escena Three.js, con rotación automática de un cubo y un modo opcional que usa la webcam como textura en un plano.
+
+Crea components/ThreeView.tsx con este contenido:
+
+```tsx
+import React, { useEffect, useRef } from 'react';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+
+type Props = {
+  mode?: 'cube' | 'webcam'; // 'cube' por defecto, 'webcam' usa getUserMedia como textura
+  width?: number;
+  height?: number;
+};
+
+export const ThreeView: React.FC<Props> = ({ mode = 'cube', width = 600, height = 400 }) => {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0b1220);
+
+    const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    cameraDar pasos concretos para ejecutar/visualizar una vista 3D localmente (dependencias, comandos, ejemploApp.tsx
